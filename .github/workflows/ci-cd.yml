@@ -221,7 +221,7 @@ jobs:
           if [ -d "reports/frontend-temp/dist" ]; then
             echo "Packaging frontend build..."
             cp -r reports/frontend-temp/dist/* deployment-artifact/frontend-dist/
-            cp SE_FINAL_1/frontend/package.json deployment-artifact/frontend-package.json
+            cp frontend/package.json deployment-artifact/frontend-package.json
           fi
           
           # Check if backend reports exist before copying
