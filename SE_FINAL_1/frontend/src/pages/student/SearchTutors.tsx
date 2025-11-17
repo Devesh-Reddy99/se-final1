@@ -10,9 +10,11 @@ interface Tutor {
   hourlyRate: number;
   rating: number;
   totalBookings: number;
+  totalReviews: number;
   user: {
     id: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
   };
 }
@@ -43,7 +45,15 @@ export default function SearchTutors() {
     try {
       setLoading(true);
       const response = await api.get('/tutors');
-      setTutors(response.data);
+      const tutorsData = response.data.data?.tutors || response.data.tutors || response.data;
+      
+      // Ensure subjects is always an array
+      const parsedTutors = (Array.isArray(tutorsData) ? tutorsData : []).map(tutor => ({
+        ...tutor,
+        subjects: typeof tutor.subjects === 'string' ? JSON.parse(tutor.subjects) : tutor.subjects
+      }));
+      
+      setTutors(parsedTutors);
       setError('');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch tutors');
@@ -75,7 +85,9 @@ export default function SearchTutors() {
       if (filters.sortBy === 'rate-asc') return a.hourlyRate - b.hourlyRate;
       if (filters.sortBy === 'rate-desc') return b.hourlyRate - a.hourlyRate;
       if (filters.sortBy === 'rating') return b.rating - a.rating;
-      return a.user.name.localeCompare(b.user.name);
+      const aName = `${a.user.firstName} ${a.user.lastName}`;
+      const bName = `${b.user.firstName} ${b.user.lastName}`;
+      return aName.localeCompare(bName);
     });
 
     setFilteredTutors(result);
@@ -183,7 +195,7 @@ export default function SearchTutors() {
             >
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-xl font-semibold">{tutor.user.name}</h3>
+                  <h3 className="text-xl font-semibold">{tutor.user.firstName} {tutor.user.lastName}</h3>
                   <p className="text-gray-600 text-sm">{tutor.subjects.join(', ')}</p>
                 </div>
                 <div className="text-right">
@@ -197,7 +209,7 @@ export default function SearchTutors() {
               <div className="flex justify-between items-center">
                 <div className="text-yellow-500 text-lg">
                   {renderStars(tutor.rating)}
-                  <span className="text-gray-600 text-sm ml-2">({tutor.rating.toFixed(1)})</span>
+                  <span className="text-gray-600 text-sm ml-2">({tutor.rating.toFixed(1)} - {tutor.totalReviews} reviews)</span>
                 </div>
                 <div className="text-sm text-gray-600">
                   {tutor.totalBookings} sessions

@@ -11,6 +11,7 @@ interface Stats {
   confirmedBookings: number;
   cancelledBookings: number;
   completedBookings: number;
+  totalRevenue: number;
 }
 
 export default function AdminDashboard() {
@@ -27,7 +28,8 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       const response = await api.get('/admin/stats');
-      setStats(response.data);
+      const statsData = response.data.data?.stats || response.data.stats || response.data;
+      setStats(statsData);
       setError('');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch statistics');
@@ -111,6 +113,21 @@ export default function AdminDashboard() {
             <p className="text-gray-600 text-sm">Cancelled</p>
             <p className="text-2xl font-bold text-red-600">{stats.cancelledBookings}</p>
           </div>
+        </div>
+      </div>
+
+      {/* Revenue Overview */}
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6 mb-8">
+        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Revenue Overview</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-600 mb-1">Total Revenue (Confirmed + Completed)</p>
+            <p className="text-4xl font-bold text-green-600">${stats.totalRevenue.toFixed(2)}</p>
+            <p className="text-sm text-gray-500 mt-2">
+              From {stats.confirmedBookings + stats.completedBookings} paid bookings
+            </p>
+          </div>
+          <div className="text-6xl">💰</div>
         </div>
       </div>
 

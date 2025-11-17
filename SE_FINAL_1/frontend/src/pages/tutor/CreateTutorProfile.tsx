@@ -27,12 +27,13 @@ export default function CreateTutorProfile() {
   const checkExistingProfile = async () => {
     try {
       const response = await api.get('/tutors/profile');
-      if (response.data) {
-        setExistingProfile(response.data);
+      const tutorData = response.data.data?.tutor || response.data.tutor || response.data;
+      if (tutorData) {
+        setExistingProfile(tutorData);
         setFormData({
-          bio: response.data.bio,
-          subjects: response.data.subjects,
-          hourlyRate: response.data.hourlyRate
+          bio: tutorData.bio || '',
+          subjects: tutorData.subjects || [],
+          hourlyRate: tutorData.hourlyRate || 25
         });
       }
     } catch (err: any) {
@@ -79,7 +80,7 @@ export default function CreateTutorProfile() {
 
     try {
       if (existingProfile) {
-        await api.put(`/tutors/${existingProfile.id}`, formData);
+        await api.put('/tutors/profile', formData);
         alert('Profile updated successfully!');
       } else {
         await api.post('/tutors', formData);

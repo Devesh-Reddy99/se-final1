@@ -89,6 +89,8 @@ model Booking {
   notes           String?
   cancellationReason String?
   reminderSent    Boolean       @default(false)
+  rating          Int?          // Rating from 1-5, only for completed bookings
+  review          String?       // Optional review text
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

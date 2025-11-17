@@ -13,21 +13,27 @@ export default function Navbar() {
     <nav className="bg-white shadow-md">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
-          <Link to="/dashboard" className="text-xl font-bold text-primary-600">
+          <Link 
+            to={user?.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'} 
+            className="text-xl font-bold text-primary-600"
+          >
             Tutor Booking
           </Link>
 
           <div className="flex items-center space-x-6">
-            <Link to="/dashboard" className="text-gray-700 hover:text-primary-600">
+            <Link 
+              to={user?.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'} 
+              className="text-gray-700 hover:text-primary-600"
+            >
               Dashboard
             </Link>
 
             {user?.role === 'STUDENT' && (
               <>
-                <Link to="/search-tutors" className="text-gray-700 hover:text-primary-600">
+                <Link to="/student/search" className="text-gray-700 hover:text-primary-600">
                   Find Tutors
                 </Link>
-                <Link to="/my-bookings" className="text-gray-700 hover:text-primary-600">
+                <Link to="/student/my-bookings" className="text-gray-700 hover:text-primary-600">
                   My Bookings
                 </Link>
               </>

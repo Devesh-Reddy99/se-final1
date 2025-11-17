@@ -16,6 +16,7 @@ interface Tutor {
   hourlyRate: number;
   rating: number;
   totalBookings: number;
+  totalReviews: number;
   user: {
     name: string;
     email: string;
@@ -41,7 +42,7 @@ export default function TutorDetails() {
   const fetchTutorDetails = async () => {
     try {
       const response = await api.get(`/tutors/${tutorId}`);
-      setTutor(response.data);
+      setTutor(response.data.data?.tutor || response.data.data || response.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch tutor details');
     }
@@ -51,7 +52,8 @@ export default function TutorDetails() {
     try {
       setLoading(true);
       const response = await api.get(`/slots/tutor/${tutorId}`);
-      setSlots(response.data.filter((slot: Slot) => !slot.isBooked));
+      const slotsData = response.data.data?.slots || response.data.data || response.data;
+      setSlots(slotsData.filter((slot: Slot) => !slot.isBooked));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch available slots');
     } finally {
@@ -70,7 +72,13 @@ export default function TutorDetails() {
     setSuccess('');
 
     try {
-      await api.post('/bookings', { slotId: selectedSlot });
+      // Get the first subject from tutor's subjects or use a default
+      const subject = tutor?.subjects?.[0] || 'General Tutoring';
+      await api.post('/bookings', { 
+        slotId: selectedSlot, 
+        subject,
+        notes: 'Booking made through tutor details page'
+      });
       setSuccess('Booking successful! Check your email for confirmation.');
       setTimeout(() => {
         navigate('/student/my-bookings');
@@ -147,7 +155,7 @@ export default function TutorDetails() {
             <p className="text-gray-600">/hour</p>
             <div className="mt-2 text-yellow-500">
               {'★'.repeat(Math.round(tutor.rating))}{'☆'.repeat(5 - Math.round(tutor.rating))}
-              <span className="text-gray-600 ml-2">({tutor.rating.toFixed(1)})</span>
+              <span className="text-gray-600 ml-2">({tutor.rating.toFixed(1)} - {tutor.totalReviews} reviews)</span>
             </div>
           </div>
         </div>

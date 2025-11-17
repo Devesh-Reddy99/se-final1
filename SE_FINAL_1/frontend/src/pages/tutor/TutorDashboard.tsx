@@ -11,7 +11,8 @@ interface Booking {
     endTime: string;
   };
   student: {
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
   };
 }
@@ -43,8 +44,12 @@ export default function TutorDashboard() {
         api.get('/tutors/profile')
       ]);
       
+      // Handle nested response structure
+      const bookingsData = bookingsRes.data.data?.bookings || bookingsRes.data.bookings || bookingsRes.data;
+      const profileData = profileRes.data.data?.tutor || profileRes.data.tutor || profileRes.data;
+      
       // Filter upcoming bookings
-      const upcoming = bookingsRes.data.filter((b: Booking) => 
+      const upcoming = (Array.isArray(bookingsData) ? bookingsData : []).filter((b: Booking) => 
         new Date(b.slot.startTime) > new Date() && 
         (b.status === 'CONFIRMED' || b.status === 'PENDING')
       ).sort((a: Booking, b: Booking) => 
@@ -52,7 +57,7 @@ export default function TutorDashboard() {
       );
       
       setBookings(upcoming);
-      setProfile(profileRes.data);
+      setProfile(profileData);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load data');
     } finally {
@@ -194,7 +199,7 @@ export default function TutorDashboard() {
                       </span>
                     </div>
                     <p className="font-semibold text-lg mb-1">
-                      Session with {booking.student.name}
+                      Session with {booking.student.firstName} {booking.student.lastName}
                     </p>
                     <p className="text-gray-600 text-sm mb-1">
                       📧 {booking.student.email}

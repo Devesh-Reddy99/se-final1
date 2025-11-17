@@ -28,9 +28,10 @@ export const createTutorValidation: ValidationChain[] = [
 export const createSlotValidation: ValidationChain[] = [
   body('startTime').isISO8601().withMessage('Valid start time is required'),
   body('endTime').isISO8601().withMessage('Valid end time is required'),
-  body('duration').isInt({ min: 15 }).withMessage('Duration must be at least 15 minutes'),
+  body('duration').optional().isInt({ min: 15 }).withMessage('Duration must be at least 15 minutes'),
   body('recurrence').optional().isIn(['NONE', 'DAILY', 'WEEKLY', 'MONTHLY']),
   body('recurrenceEnd').optional().isISO8601(),
+  body('recurrenceCount').optional().isInt({ min: 1, max: 30 }).withMessage('Recurrence count must be between 1 and 30'),
 ];
 
 export const createBookingValidation: ValidationChain[] = [

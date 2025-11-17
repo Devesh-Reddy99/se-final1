@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createBooking, getBookings, cancelBooking } from '../controllers/bookingController';
+import { createBooking, getBookings, cancelBooking, rateBooking } from '../controllers/bookingController';
 import { authenticate } from '../middlewares/auth.middleware';
 import { createBookingValidation } from '../middlewares/validation.middleware';
 
@@ -26,6 +26,8 @@ router.use(authenticate);
  *         description: List of bookings
  */
 router.get('/', getBookings);
+router.get('/my-bookings', getBookings);
+router.get('/tutor-bookings', getBookings);
 
 /**
  * @swagger
@@ -73,5 +75,40 @@ router.post('/', createBookingValidation, createBooking);
  *         description: Booking cancelled
  */
 router.put('/:id/cancel', cancelBooking);
+
+/**
+ * @swagger
+ * /api/bookings/{id}/rate:
+ *   put:
+ *     tags: [Bookings]
+ *     summary: Rate a completed booking
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rating
+ *             properties:
+ *               rating:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 5
+ *               review:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Booking rated successfully
+ */
+router.put('/:id/rate', rateBooking);
 
 export default router;

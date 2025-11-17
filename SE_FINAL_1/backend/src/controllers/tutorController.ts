@@ -31,7 +31,7 @@ export const createTutor = async (req: AuthRequest, res: Response) => {
     data: {
       userId: req.user.id,
       bio,
-      subjects,
+      subjects: JSON.stringify(Array.isArray(subjects) ? subjects : [subjects]),
       hourlyRate: parseFloat(hourlyRate),
       experience: experience ? parseInt(experience) : undefined,
       education,
@@ -49,9 +49,114 @@ export const createTutor = async (req: AuthRequest, res: Response) => {
     },
   });
 
+  // Parse subjects JSON string to array
+  const tutorWithParsedSubjects = {
+    ...tutor,
+    subjects: typeof tutor.subjects === 'string' ? JSON.parse(tutor.subjects) : tutor.subjects,
+  };
+
   res.status(201).json({
     status: 'success',
-    data: { tutor },
+    data: { tutor: tutorWithParsedSubjects },
+  });
+};
+
+export const getMyProfile = async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    throw new AppError('Unauthorized', 401);
+  }
+
+  const tutor = await prisma.tutor.findUnique({
+    where: { userId: req.user.id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          avatar: true,
+        },
+      },
+    },
+  });
+
+  if (!tutor) {
+    return res.status(404).json({
+      status: 'error',
+      message: 'Tutor profile not found',
+    });
+  }
+
+  // Get total bookings count
+  const totalBookings = await prisma.booking.count({
+    where: {
+      tutorId: tutor.id,
+      status: { in: ['CONFIRMED', 'COMPLETED'] },
+    },
+  });
+
+  // Parse subjects JSON string to array
+  const tutorWithParsedSubjects = {
+    ...tutor,
+    subjects: typeof tutor.subjects === 'string' ? JSON.parse(tutor.subjects) : tutor.subjects,
+    totalBookings,
+  };
+
+  return res.status(200).json({
+    status: 'success',
+    data: { tutor: tutorWithParsedSubjects },
+  });
+};
+
+export const updateMyProfile = async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    throw new AppError('Unauthorized', 401);
+  }
+
+  // Find tutor by userId
+  const tutor = await prisma.tutor.findUnique({
+    where: { userId: req.user.id },
+  });
+
+  if (!tutor) {
+    throw new AppError('Tutor profile not found', 404);
+  }
+
+  const { bio, subjects, hourlyRate, experience, education, isActive } = req.body;
+
+  const updateData: any = {};
+  if (bio !== undefined) updateData.bio = bio;
+  if (subjects !== undefined) updateData.subjects = JSON.stringify(Array.isArray(subjects) ? subjects : [subjects]);
+  if (hourlyRate !== undefined) updateData.hourlyRate = parseFloat(hourlyRate);
+  if (experience !== undefined) updateData.experience = parseInt(experience);
+  if (education !== undefined) updateData.education = education;
+  if (isActive !== undefined) updateData.isActive = isActive;
+
+  const updated = await prisma.tutor.update({
+    where: { id: tutor.id },
+    data: updateData,
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatar: true,
+        },
+      },
+    },
+  });
+
+  // Parse subjects JSON string to array
+  const updatedWithParsedSubjects = {
+    ...updated,
+    subjects: typeof updated.subjects === 'string' ? JSON.parse(updated.subjects) : updated.subjects,
+  };
+
+  return res.status(200).json({
+    status: 'success',
+    data: { tutor: updatedWithParsedSubjects },
   });
 };
 
@@ -61,8 +166,9 @@ export const getTutors = async (req: Request, res: Response) => {
   const where: any = { isActive: true };
 
   if (subject) {
+    // SQLite doesn't support array operators, so we use LIKE for JSON string search
     where.subjects = {
-      has: subject as string,
+      contains: subject as string,
     };
   }
 
@@ -95,10 +201,25 @@ export const getTutors = async (req: Request, res: Response) => {
     prisma.tutor.count({ where }),
   ]);
 
+  // Parse subjects JSON string to array and add totalBookings for each tutor
+  const tutorsWithParsedSubjects = await Promise.all(tutors.map(async (tutor) => {
+    const totalBookings = await prisma.booking.count({
+      where: {
+        tutorId: tutor.id,
+        status: { in: ['CONFIRMED', 'COMPLETED'] },
+      },
+    });
+    return {
+      ...tutor,
+      subjects: typeof tutor.subjects === 'string' ? JSON.parse(tutor.subjects) : tutor.subjects,
+      totalBookings,
+    };
+  }));
+
   res.status(200).json({
     status: 'success',
     data: {
-      tutors,
+      tutors: tutorsWithParsedSubjects,
       pagination: {
         total,
         page: parseInt(page as string),
@@ -139,9 +260,24 @@ export const getTutorById = async (req: Request, res: Response) => {
     throw new AppError('Tutor not found', 404);
   }
 
+  // Get total bookings count
+  const totalBookings = await prisma.booking.count({
+    where: {
+      tutorId: tutor.id,
+      status: { in: ['CONFIRMED', 'COMPLETED'] },
+    },
+  });
+
+  // Parse subjects JSON string to array
+  const tutorWithParsedSubjects = {
+    ...tutor,
+    subjects: typeof tutor.subjects === 'string' ? JSON.parse(tutor.subjects) : tutor.subjects,
+    totalBookings,
+  };
+
   res.status(200).json({
     status: 'success',
-    data: { tutor },
+    data: { tutor: tutorWithParsedSubjects },
   });
 };
 
@@ -164,16 +300,17 @@ export const updateTutor = async (req: AuthRequest, res: Response) => {
 
   const { bio, subjects, hourlyRate, experience, education, isActive } = req.body;
 
+  const updateData: any = {};
+  if (bio !== undefined) updateData.bio = bio;
+  if (subjects !== undefined) updateData.subjects = JSON.stringify(Array.isArray(subjects) ? subjects : [subjects]);
+  if (hourlyRate !== undefined) updateData.hourlyRate = parseFloat(hourlyRate);
+  if (experience !== undefined) updateData.experience = parseInt(experience);
+  if (education !== undefined) updateData.education = education;
+  if (isActive !== undefined) updateData.isActive = isActive;
+
   const updated = await prisma.tutor.update({
     where: { id },
-    data: {
-      ...(bio !== undefined && { bio }),
-      ...(subjects && { subjects }),
-      ...(hourlyRate !== undefined && { hourlyRate: parseFloat(hourlyRate) }),
-      ...(experience !== undefined && { experience: parseInt(experience) }),
-      ...(education !== undefined && { education }),
-      ...(isActive !== undefined && { isActive }),
-    },
+    data: updateData,
     include: {
       user: {
         select: {
@@ -186,8 +323,14 @@ export const updateTutor = async (req: AuthRequest, res: Response) => {
     },
   });
 
+  // Parse subjects JSON string to array
+  const updatedWithParsedSubjects = {
+    ...updated,
+    subjects: typeof updated.subjects === 'string' ? JSON.parse(updated.subjects) : updated.subjects,
+  };
+
   res.status(200).json({
     status: 'success',
-    data: { tutor: updated },
+    data: { tutor: updatedWithParsedSubjects },
   });
 };

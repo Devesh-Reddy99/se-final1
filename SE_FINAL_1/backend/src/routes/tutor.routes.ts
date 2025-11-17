@@ -1,10 +1,38 @@
 import { Router } from 'express';
-import { createTutor, getTutors, getTutorById, updateTutor } from '../controllers/tutorController';
+import { createTutor, getTutors, getTutorById, updateTutor, getMyProfile, updateMyProfile } from '../controllers/tutorController';
 import { authenticate } from '../middlewares/auth.middleware';
 import { authorize } from '../middlewares/rbac.middleware';
 import { createTutorValidation } from '../middlewares/validation.middleware';
 
 const router = Router();
+
+/**
+ * @swagger
+ * /api/tutors/profile:
+ *   get:
+ *     tags: [Tutors]
+ *     summary: Get current user's tutor profile
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Tutor profile
+ */
+router.get('/profile', authenticate, authorize('TUTOR'), getMyProfile);
+
+/**
+ * @swagger
+ * /api/tutors/profile:
+ *   put:
+ *     tags: [Tutors]
+ *     summary: Update current user's tutor profile
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Tutor profile updated
+ */
+router.put('/profile', authenticate, authorize('TUTOR'), updateMyProfile);
 
 /**
  * @swagger

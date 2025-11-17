@@ -19,6 +19,7 @@ export default function ManageSlots() {
   const [success, setSuccess] = useState('');
   
   const [createMode, setCreateMode] = useState<'single' | 'recurring'>('single');
+  const [editingSlot, setEditingSlot] = useState<string | null>(null);
   const [slotForm, setSlotForm] = useState({
     date: '',
     startTime: '',
@@ -35,7 +36,8 @@ export default function ManageSlots() {
     try {
       setLoading(true);
       const response = await api.get('/slots/my-slots');
-      setSlots(response.data.sort((a: Slot, b: Slot) => 
+      const slotsData = response.data.data || response.data;
+      setSlots(slotsData.sort((a: Slot, b: Slot) => 
         new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
       ));
       setError('');
@@ -86,6 +88,62 @@ export default function ManageSlots() {
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create slot');
     }
+  };
+
+  const handleEditSlot = (slot: Slot) => {
+    const startDate = new Date(slot.startTime);
+    const endDate = new Date(slot.endTime);
+    
+    setEditingSlot(slot.id);
+    setSlotForm({
+      date: startDate.toISOString().split('T')[0],
+      startTime: startDate.toTimeString().slice(0, 5),
+      endTime: endDate.toTimeString().slice(0, 5),
+      recurrence: 'NONE',
+      recurrenceCount: 1
+    });
+    setCreateMode('single');
+    setError('');
+    setSuccess('');
+  };
+
+  const handleUpdateSlot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!slotForm.date || !slotForm.startTime || !slotForm.endTime) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    const startDateTime = new Date(`${slotForm.date}T${slotForm.startTime}`);
+    const endDateTime = new Date(`${slotForm.date}T${slotForm.endTime}`);
+
+    if (endDateTime <= startDateTime) {
+      setError('End time must be after start time');
+      return;
+    }
+
+    try {
+      await api.put(`/slots/${editingSlot}`, {
+        startTime: startDateTime.toISOString(),
+        endTime: endDateTime.toISOString()
+      });
+      setSuccess('Slot updated successfully!');
+      setEditingSlot(null);
+      fetchSlots();
+      resetForm();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update slot');
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingSlot(null);
+    resetForm();
+    setError('');
+    setSuccess('');
   };
 
   const handleDeleteSlot = async (slotId: string, isBooked: boolean) => {
@@ -150,37 +208,41 @@ export default function ManageSlots() {
       <h1 className="text-3xl font-bold mb-8">Manage Availability</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Create Slot Form */}
+        {/* Create/Edit Slot Form */}
         <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-2xl font-semibold mb-4">Create Slot</h2>
+          <h2 className="text-2xl font-semibold mb-4">
+            {editingSlot ? 'Edit Slot' : 'Create Slot'}
+          </h2>
 
-          {/* Mode Toggle */}
-          <div className="flex space-x-2 mb-6">
-            <button
-              type="button"
-              onClick={() => setCreateMode('single')}
-              className={`flex-1 py-2 px-4 rounded font-medium ${
-                createMode === 'single'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              Single Slot
-            </button>
-            <button
-              type="button"
-              onClick={() => setCreateMode('recurring')}
-              className={`flex-1 py-2 px-4 rounded font-medium ${
-                createMode === 'recurring'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              Recurring
-            </button>
-          </div>
+          {/* Mode Toggle - Only show when creating */}
+          {!editingSlot && (
+            <div className="flex space-x-2 mb-6">
+              <button
+                type="button"
+                onClick={() => setCreateMode('single')}
+                className={`flex-1 py-2 px-4 rounded font-medium ${
+                  createMode === 'single'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Single Slot
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreateMode('recurring')}
+                className={`flex-1 py-2 px-4 rounded font-medium ${
+                  createMode === 'recurring'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Recurring
+              </button>
+            </div>
+          )}
 
-          <form onSubmit={handleCreateSlot} className="space-y-4">
+          <form onSubmit={editingSlot ? handleUpdateSlot : handleCreateSlot} className="space-y-4">
             {error && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm">
                 {error}
@@ -224,7 +286,7 @@ export default function ManageSlots() {
               </div>
             </div>
 
-            {createMode === 'recurring' && (
+            {!editingSlot && createMode === 'recurring' && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Recurrence Pattern</label>
@@ -255,12 +317,23 @@ export default function ManageSlots() {
               </>
             )}
 
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white px-4 py-3 rounded hover:bg-blue-700 font-semibold"
-            >
-              {createMode === 'recurring' ? '+ Add Recurring Slots' : '+ Add Slot'}
-            </button>
+            <div className="flex space-x-2">
+              {editingSlot && (
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="flex-1 bg-gray-500 text-white px-4 py-3 rounded hover:bg-gray-600 font-semibold"
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                type="submit"
+                className={`${editingSlot ? 'flex-1' : 'w-full'} bg-blue-600 text-white px-4 py-3 rounded hover:bg-blue-700 font-semibold`}
+              >
+                {editingSlot ? 'Update Slot' : (createMode === 'recurring' ? '+ Add Recurring Slots' : '+ Add Slot')}
+              </button>
+            </div>
           </form>
         </div>
 
@@ -285,7 +358,7 @@ export default function ManageSlots() {
                         key={slot.id}
                         className={`flex justify-between items-center p-3 border rounded ${
                           slot.isBooked ? 'bg-gray-50 border-gray-300' : 'bg-white border-gray-200'
-                        }`}
+                        } ${editingSlot === slot.id ? 'ring-2 ring-blue-500' : ''}`}
                       >
                         <div>
                           <p className="font-medium">
@@ -296,12 +369,20 @@ export default function ManageSlots() {
                           </p>
                         </div>
                         {!slot.isBooked && (
-                          <button
-                            onClick={() => handleDeleteSlot(slot.id, slot.isBooked)}
-                            className="text-red-600 hover:text-red-800 px-3 py-1 rounded hover:bg-red-50"
-                          >
-                            Delete
-                          </button>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleEditSlot(slot)}
+                              className="text-blue-600 hover:text-blue-800 px-3 py-1 rounded hover:bg-blue-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSlot(slot.id, slot.isBooked)}
+                              className="text-red-600 hover:text-red-800 px-3 py-1 rounded hover:bg-red-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         )}
                       </div>
                     ))}

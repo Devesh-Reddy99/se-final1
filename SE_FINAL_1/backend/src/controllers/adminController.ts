@@ -18,10 +18,11 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
   }
 
   if (search) {
+    // SQLite is case-insensitive by default for LIKE operations
     where.OR = [
-      { firstName: { contains: search as string, mode: 'insensitive' } },
-      { lastName: { contains: search as string, mode: 'insensitive' } },
-      { email: { contains: search as string, mode: 'insensitive' } },
+      { firstName: { contains: search as string } },
+      { lastName: { contains: search as string } },
+      { email: { contains: search as string } },
     ];
   }
 
@@ -56,10 +57,19 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
     prisma.user.count({ where }),
   ]);
 
+  // Parse subjects JSON string to array for each tutor profile
+  const usersWithParsedSubjects = users.map(user => ({
+    ...user,
+    tutorProfile: user.tutorProfile ? {
+      ...user.tutorProfile,
+      subjects: typeof user.tutorProfile.subjects === 'string' ? JSON.parse(user.tutorProfile.subjects) : user.tutorProfile.subjects,
+    } : null,
+  }));
+
   res.status(200).json({
     status: 'success',
     data: {
-      users,
+      users: usersWithParsedSubjects,
       pagination: {
         total,
         page: parseInt(page as string),
@@ -109,6 +119,54 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
   res.status(200).json({
     status: 'success',
     message: 'User deleted successfully',
+  });
+};
+
+export const createUser = async (req: AuthRequest, res: Response) => {
+  const { email, password, firstName, lastName, role, phone } = req.body;
+
+  if (!email || !password || !firstName || !lastName) {
+    throw new AppError('Missing required fields', 400);
+  }
+
+  if (!['STUDENT', 'TUTOR', 'ADMIN'].includes(role || 'STUDENT')) {
+    throw new AppError('Invalid role', 400);
+  }
+
+  // Check if user exists
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) {
+    throw new AppError('User with this email already exists', 409);
+  }
+
+  // Hash password
+  const bcrypt = require('bcryptjs');
+  const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_ROUNDS || '10'));
+
+  // Create user
+  const user = await prisma.user.create({
+    data: {
+      email,
+      password: hashedPassword,
+      firstName,
+      lastName,
+      role: role || 'STUDENT',
+      phone,
+    },
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      phone: true,
+      createdAt: true,
+    },
+  });
+
+  res.status(201).json({
+    status: 'success',
+    data: { user },
   });
 };
 
@@ -174,10 +232,19 @@ export const getAllBookings = async (req: AuthRequest, res: Response) => {
     prisma.booking.count({ where }),
   ]);
 
+  // Parse subjects JSON string to array for each tutor
+  const bookingsWithParsedSubjects = bookings.map(booking => ({
+    ...booking,
+    tutor: {
+      ...booking.tutor,
+      subjects: typeof booking.tutor.subjects === 'string' ? JSON.parse(booking.tutor.subjects) : booking.tutor.subjects,
+    },
+  }));
+
   res.status(200).json({
     status: 'success',
     data: {
-      bookings,
+      bookings: bookingsWithParsedSubjects,
       pagination: {
         total,
         page: parseInt(page as string),
@@ -285,30 +352,54 @@ export const getStatistics = async (_req: AuthRequest, res: Response) => {
     totalStudents,
     totalTutors,
     totalBookings,
+    pendingBookings,
     confirmedBookings,
+    completedBookings,
+    cancelledBookings,
+    revenueBookings,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { role: 'STUDENT' } }),
     prisma.user.count({ where: { role: 'TUTOR' } }),
     prisma.booking.count(),
+    prisma.booking.count({ where: { status: 'PENDING' } }),
     prisma.booking.count({ where: { status: 'CONFIRMED' } }),
+    prisma.booking.count({ where: { status: 'COMPLETED' } }),
+    prisma.booking.count({ where: { status: 'CANCELLED' } }),
+    prisma.booking.findMany({ 
+      where: { 
+        OR: [
+          { status: 'CONFIRMED' },
+          { status: 'COMPLETED' }
+        ]
+      },
+      include: {
+        slot: true,
+        tutor: true,
+      }
+    }),
   ]);
+
+  // Calculate total revenue from confirmed and completed bookings
+  let totalRevenue = 0;
+  for (const booking of revenueBookings) {
+    const durationInHours = booking.slot.duration / 60;
+    totalRevenue += booking.tutor.hourlyRate * durationInHours;
+  }
 
   res.status(200).json({
     status: 'success',
     data: {
-      users: {
-        total: totalUsers,
-        students: totalStudents,
-        tutors: totalTutors,
-      },
-      bookings: {
-        total: totalBookings,
-        confirmed: confirmedBookings,
-        cancelled: totalBookings - confirmedBookings,
-      },
-      revenue: {
-        total: 0, // Would calculate based on actual booking costs
+      stats: {
+        totalUsers,
+        totalStudents,
+        totalTutors,
+        totalBookings,
+        pendingBookings,
+        confirmedBookings,
+        completedBookings,
+        cancelledBookings,
+        totalRevenue: parseFloat(totalRevenue.toFixed(2)),
       },
     },
   });

@@ -1,8 +1,17 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useEffect } from 'react';
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect admin users to admin dashboard
+  useEffect(() => {
+    if (user?.role === 'ADMIN') {
+      navigate('/admin/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -16,13 +25,13 @@ export default function Dashboard() {
             <DashboardCard
               title="Search Tutors"
               description="Find and book sessions with expert tutors"
-              link="/search-tutors"
+              link="/student/search"
               icon="🔍"
             />
             <DashboardCard
               title="My Bookings"
               description="View and manage your upcoming sessions"
-              link="/my-bookings"
+              link="/student/my-bookings"
               icon="📅"
             />
             <DashboardCard

@@ -154,10 +154,19 @@ export const getBookings = async (req: AuthRequest, res: Response) => {
     prisma.booking.count({ where }),
   ]);
 
+  // Parse subjects JSON string to array for each tutor
+  const bookingsWithParsedSubjects = bookings.map(booking => ({
+    ...booking,
+    tutor: {
+      ...booking.tutor,
+      subjects: typeof booking.tutor.subjects === 'string' ? JSON.parse(booking.tutor.subjects) : booking.tutor.subjects,
+    },
+  }));
+
   res.status(200).json({
     status: 'success',
     data: {
-      bookings,
+      bookings: bookingsWithParsedSubjects,
       pagination: {
         total,
         page: parseInt(page as string),
@@ -259,5 +268,77 @@ export const cancelBooking = async (req: AuthRequest, res: Response) => {
   res.status(200).json({
     status: 'success',
     data: { booking: updated },
+  });
+};
+
+export const rateBooking = async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    throw new AppError('Unauthorized', 401);
+  }
+
+  const { id } = req.params;
+  const { rating, review } = req.body;
+
+  // Validate rating
+  if (!rating || rating < 1 || rating > 5) {
+    throw new AppError('Rating must be between 1 and 5', 400);
+  }
+
+  const booking = await prisma.booking.findUnique({
+    where: { id },
+    include: { tutor: true },
+  });
+
+  if (!booking) {
+    throw new AppError('Booking not found', 404);
+  }
+
+  // Only the student who made the booking can rate
+  if (booking.studentId !== req.user.id) {
+    throw new AppError('You can only rate your own bookings', 403);
+  }
+
+  // Only completed bookings can be rated
+  if (booking.status !== 'COMPLETED') {
+    throw new AppError('Only completed bookings can be rated', 400);
+  }
+
+  // Check if already rated
+  if (booking.rating) {
+    throw new AppError('This booking has already been rated', 400);
+  }
+
+  // Update booking with rating
+  const updatedBooking = await prisma.booking.update({
+    where: { id },
+    data: {
+      rating: parseInt(rating),
+      review: review || null,
+    },
+  });
+
+  // Update tutor's average rating
+  const tutorBookings = await prisma.booking.findMany({
+    where: {
+      tutorId: booking.tutorId,
+      rating: { not: null },
+    },
+    select: { rating: true },
+  });
+
+  const totalRating = tutorBookings.reduce((sum, b) => sum + (b.rating || 0), 0);
+  const avgRating = totalRating / tutorBookings.length;
+
+  await prisma.tutor.update({
+    where: { id: booking.tutorId },
+    data: {
+      rating: parseFloat(avgRating.toFixed(2)),
+      totalReviews: tutorBookings.length,
+    },
+  });
+
+  res.status(200).json({
+    status: 'success',
+    data: { booking: updatedBooking },
   });
 };

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createSlot, getSlots, updateSlot, deleteSlot } from '../controllers/slotController';
+import { createSlot, getSlots, getMySlots, updateSlot, deleteSlot } from '../controllers/slotController';
 import { authenticate } from '../middlewares/auth.middleware';
 import { authorize } from '../middlewares/rbac.middleware';
 import { createSlotValidation } from '../middlewares/validation.middleware';
@@ -26,6 +26,21 @@ const router = Router();
  *         description: List of slots
  */
 router.get('/', authenticate, getSlots);
+
+// Get tutor's own slots
+router.get('/my-slots', authenticate, authorize('TUTOR'), getMySlots);
+
+// Get slots for specific tutor (for students)
+router.get('/tutor/:tutorId', authenticate, async (req, res, next) => {
+  try {
+    const { tutorId } = req.params;
+    req.query.tutorId = tutorId;
+    req.query.available = 'true';
+    await getSlots(req, res);
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * @swagger

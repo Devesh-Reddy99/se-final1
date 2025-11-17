@@ -25,7 +25,7 @@ export const createSlot = async (req: AuthRequest, res: Response) => {
     throw new AppError('Tutor profile not found. Please create a tutor profile first.', 404);
   }
 
-  const { startTime, endTime, duration, recurrence, recurrenceEnd } = req.body;
+  const { startTime, endTime, duration, recurrence, recurrenceEnd, recurrenceCount } = req.body;
 
   const start = new Date(startTime);
   const end = new Date(endTime);
@@ -73,12 +73,14 @@ export const createSlot = async (req: AuthRequest, res: Response) => {
   // Handle recurring slots
   if (recurrence && recurrence !== 'NONE') {
     const slots = [];
+    const maxCount = recurrenceCount || 30;
     const recurEnd = recurrenceEnd ? new Date(recurrenceEnd) : new Date(start.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 days default
 
     let currentStart = new Date(start);
     let currentEnd = new Date(end);
+    let count = 0;
 
-    while (currentStart < recurEnd) {
+    while (currentStart < recurEnd && count < maxCount) {
       // Check overlap for each slot
       const overlap = await prisma.slot.findFirst({
         where: {
@@ -105,10 +107,11 @@ export const createSlot = async (req: AuthRequest, res: Response) => {
           tutorId: tutor.id,
           startTime: new Date(currentStart),
           endTime: new Date(currentEnd),
-          duration: parseInt(duration),
+          duration: parseInt(duration) || Math.floor((currentEnd.getTime() - currentStart.getTime()) / 60000),
           recurrence,
           recurrenceEnd: recurEnd,
         });
+        count++;
       }
 
       // Increment based on recurrence
@@ -132,12 +135,14 @@ export const createSlot = async (req: AuthRequest, res: Response) => {
     });
   } else {
     // Create single slot
+    const calculatedDuration = duration ? parseInt(duration) : Math.floor((end.getTime() - start.getTime()) / 60000);
+    
     const slot = await prisma.slot.create({
       data: {
         tutorId: tutor.id,
         startTime: start,
         endTime: end,
-        duration: parseInt(duration),
+        duration: calculatedDuration,
         recurrence: 'NONE',
       },
     });
@@ -190,6 +195,45 @@ export const getSlots = async (req: AuthRequest, res: Response) => {
   res.status(200).json({
     status: 'success',
     data: { slots },
+  });
+};
+
+export const getMySlots = async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    throw new AppError('Unauthorized', 401);
+  }
+
+  // Get tutor profile
+  const tutor = await prisma.tutor.findUnique({
+    where: { userId: req.user.id },
+  });
+
+  if (!tutor) {
+    throw new AppError('Tutor profile not found', 404);
+  }
+
+  const slots = await prisma.slot.findMany({
+    where: { tutorId: tutor.id },
+    include: {
+      booking: {
+        include: {
+          student: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { startTime: 'asc' },
+  });
+
+  res.status(200).json({
+    status: 'success',
+    data: slots,
   });
 };
 

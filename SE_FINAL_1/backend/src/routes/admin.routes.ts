@@ -3,6 +3,7 @@ import {
   getAllUsers,
   updateUserRole,
   deleteUser,
+  createUser,
   getAllBookings,
   exportBookings,
   getStatistics,
@@ -34,6 +35,45 @@ router.use(authorize('ADMIN'));
  *         description: List of users
  */
 router.get('/users', getAllUsers);
+
+/**
+ * @swagger
+ * /api/admin/users:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Create a new user (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *               - firstName
+ *               - lastName
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [STUDENT, TUTOR, ADMIN]
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ */
+router.post('/users', createUser);
 
 /**
  * @swagger

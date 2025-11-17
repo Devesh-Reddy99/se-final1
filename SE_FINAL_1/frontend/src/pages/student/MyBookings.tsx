@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
+import RatingModal from '../../components/RatingModal';
 
 type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
 
@@ -7,17 +8,21 @@ interface Booking {
   id: string;
   status: BookingStatus;
   createdAt: string;
+  subject: string;
+  rating?: number;
+  review?: string;
   slot: {
     id: string;
     startTime: string;
     endTime: string;
-    tutor: {
-      id: string;
-      hourlyRate: number;
-      subjects: string[];
-      user: {
-        name: string;
-      };
+  };
+  tutor: {
+    id: string;
+    hourlyRate: number;
+    subjects: string[];
+    user: {
+      firstName: string;
+      lastName: string;
     };
   };
 }
@@ -27,6 +32,8 @@ export default function MyBookings() {
   const [filter, setFilter] = useState<'all' | BookingStatus | 'upcoming'>('upcoming');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [ratingModalOpen, setRatingModalOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
     fetchBookings();
@@ -36,7 +43,8 @@ export default function MyBookings() {
     try {
       setLoading(true);
       const response = await api.get('/bookings/my-bookings');
-      setBookings(response.data);
+      const bookingsData = response.data.data?.bookings || response.data.bookings || response.data;
+      setBookings(Array.isArray(bookingsData) ? bookingsData : []);
       setError('');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch bookings');
@@ -51,12 +59,34 @@ export default function MyBookings() {
     }
 
     try {
-      await api.delete(`/bookings/${bookingId}/cancel`);
+      await api.put(`/bookings/${bookingId}/cancel`, { reason: 'Cancelled by student' });
       alert('Booking cancelled successfully');
       fetchBookings();
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to cancel booking');
     }
+  };
+
+  const handleRateBooking = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setRatingModalOpen(true);
+  };
+
+  const submitRating = async (rating: number, review: string) => {
+    if (!selectedBooking) return;
+
+    try {
+      await api.put(`/bookings/${selectedBooking.id}/rate`, { rating, review });
+      alert('Rating submitted successfully');
+      fetchBookings();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to submit rating');
+      throw err;
+    }
+  };
+
+  const canRate = (booking: Booking) => {
+    return booking.status === 'COMPLETED' && !booking.rating;
   };
 
   const formatDate = (dateString: string) => {
@@ -152,7 +182,7 @@ export default function MyBookings() {
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <h3 className="text-xl font-semibold mb-2">
-                    {booking.slot.tutor.subjects.join(', ')} with {booking.slot.tutor.user.name}
+                    {booking.tutor.subjects.join(', ')} with {booking.tutor.user.firstName} {booking.tutor.user.lastName}
                   </h3>
                   <p className="text-gray-600 mb-1">
                     📅 {formatDate(booking.slot.startTime)}
@@ -161,7 +191,7 @@ export default function MyBookings() {
                     🕐 {formatTime(booking.slot.startTime)} - {formatTime(booking.slot.endTime)}
                   </p>
                   <p className="text-gray-600 mb-2">
-                    💰 ${booking.slot.tutor.hourlyRate}/hour
+                    💰 ${booking.tutor.hourlyRate}/hour
                   </p>
                   <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(booking.status)}`}>
                     {booking.status}
@@ -172,6 +202,12 @@ export default function MyBookings() {
                   <p className="text-sm text-gray-500">
                     Booked on {formatDate(booking.createdAt)}
                   </p>
+                  {booking.rating && (
+                    <div className="flex items-center">
+                      <span className="text-yellow-400 mr-1">★</span>
+                      <span className="text-sm text-gray-600">{booking.rating}/5</span>
+                    </div>
+                  )}
                   {canCancel(booking) && (
                     <button
                       onClick={() => handleCancelBooking(booking.id)}
@@ -180,11 +216,30 @@ export default function MyBookings() {
                       Cancel Booking
                     </button>
                   )}
+                  {canRate(booking) && (
+                    <button
+                      onClick={() => handleRateBooking(booking)}
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    >
+                      Rate Tutor
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {ratingModalOpen && selectedBooking && (
+        <RatingModal
+          tutorName={`${selectedBooking.tutor.user.firstName} ${selectedBooking.tutor.user.lastName}`}
+          onClose={() => {
+            setRatingModalOpen(false);
+            setSelectedBooking(null);
+          }}
+          onSubmit={submitRating}
+        />
       )}
     </div>
   );

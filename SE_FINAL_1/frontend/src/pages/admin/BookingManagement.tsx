@@ -6,24 +6,27 @@ type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
 interface Booking {
   id: string;
   status: BookingStatus;
+  subject: string;
   createdAt: string;
   student: {
     id: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
   };
   slot: {
     id: string;
     startTime: string;
     endTime: string;
-    tutor: {
-      id: string;
-      hourlyRate: number;
-      subjects: string[];
-      user: {
-        name: string;
-        email: string;
-      };
+  };
+  tutor: {
+    id: string;
+    hourlyRate?: number;
+    subjects?: string[];
+    user: {
+      firstName: string;
+      lastName: string;
+      email: string;
     };
   };
 }
@@ -48,7 +51,8 @@ export default function BookingManagement() {
     try {
       setLoading(true);
       const response = await api.get('/admin/bookings');
-      setBookings(response.data.sort((a: Booking, b: Booking) => 
+      const bookingsData = response.data.data?.bookings || response.data.data || response.data;
+      setBookings(bookingsData.sort((a: Booking, b: Booking) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ));
       setError('');
@@ -103,14 +107,14 @@ export default function BookingManagement() {
       }
 
       // Date from filter
-      if (filters.dateFrom) {
+      if (filters.dateFrom && booking.slot) {
         const bookingDate = new Date(booking.slot.startTime);
         const fromDate = new Date(filters.dateFrom);
         if (bookingDate < fromDate) return false;
       }
 
       // Date to filter
-      if (filters.dateTo) {
+      if (filters.dateTo && booking.slot) {
         const bookingDate = new Date(booking.slot.startTime);
         const toDate = new Date(filters.dateTo);
         toDate.setHours(23, 59, 59, 999);
@@ -294,21 +298,23 @@ export default function BookingManagement() {
                     </td>
                     <td className="px-6 py-4">
                       <div>
-                        <p className="font-semibold text-gray-900">{booking.student.name}</p>
+                        <p className="font-semibold text-gray-900">{booking.student.firstName} {booking.student.lastName}</p>
                         <p className="text-sm text-gray-600">{booking.student.email}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div>
-                        <p className="font-semibold text-gray-900">{booking.slot.tutor.user.name}</p>
-                        <p className="text-sm text-gray-600">{booking.slot.tutor.subjects.join(', ')}</p>
+                        <p className="font-semibold text-gray-900">{booking.tutor.user.firstName} {booking.tutor.user.lastName}</p>
+                        <p className="text-sm text-gray-600">{booking.subject || 'N/A'}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       <div>
                         <p>{formatDate(booking.slot.startTime)}</p>
                         <p>{formatDateTime(booking.slot.startTime)}</p>
-                        <p className="font-semibold text-green-600">${booking.slot.tutor.hourlyRate}/hr</p>
+                        {booking.tutor.hourlyRate && (
+                          <p className="font-semibold text-green-600">${booking.tutor.hourlyRate}/hr</p>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">

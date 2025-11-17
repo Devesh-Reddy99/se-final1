@@ -21,9 +21,24 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await register(formData.firstName, formData.lastName, formData.email, formData.password);
+      await register(
+        formData.firstName, 
+        formData.lastName, 
+        formData.email, 
+        formData.password, 
+        formData.role,
+        formData.phone
+      );
       toast.success('Registration successful!');
-      navigate('/dashboard');
+      
+      // Redirect based on role
+      if (formData.role === 'TUTOR') {
+        navigate('/tutor/dashboard');
+      } else if (formData.role === 'STUDENT') {
+        navigate('/student/search');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Registration failed');
     } finally {
