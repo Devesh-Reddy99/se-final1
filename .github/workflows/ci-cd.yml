@@ -79,7 +79,7 @@ jobs:
         
       - name: 📊 Check Code Coverage (≥75%)
         if: steps.check_backend_exists.outputs.exists == 'true'
-        run: npm test -- --coverage
+        run: npm test
         
       - name: 🔒 Check Dependency Vulnerabilities
         if: steps.check_backend_exists.outputs.exists == 'true'
@@ -154,7 +154,7 @@ jobs:
         
       - name: 🧪 Run Tests & Coverage (≥75%)
         if: steps.check_frontend_exists.outputs.exists == 'true'
-        run: npm test -- --coverage
+        run: npm test
         
       - name: 🔒 Check Dependency Vulnerabilities
         if: steps.check_frontend_exists.outputs.exists == 'true'
