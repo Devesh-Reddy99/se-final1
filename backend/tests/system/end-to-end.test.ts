@@ -1,11 +1,41 @@
 /**
  * System/E2E Tests - Complete workflow testing
  */
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { sendBookingConfirmation, sendBookingCancellation, sendBookingReminder } from '../../src/services/emailService';
+// Mock nodemailer
+jest.mock('nodemailer', () => ({
+  createTransport: jest.fn().mockReturnValue({
+    sendMail: jest.fn().mockResolvedValue({ messageId: 'test-message-id' }),
+  }),
+}));
+
+// Minimal PrismaClient mock to avoid DB access during system tests
+jest.mock('@prisma/client', () => {
+  const mClient = {
+    user: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 'u1', email: 'user@example.com' }),
+    },
+    slot: {
+      findUnique: jest.fn().mockResolvedValue({ id: 's1', isBooked: false, startTime: new Date(Date.now() + 3600000), endTime: new Date(Date.now() + 7200000), tutorId: 't1', duration: 60 }),
+      update: jest.fn().mockResolvedValue({}),
+    },
+    booking: {
+      create: jest.fn().mockResolvedValue({ id: 'b1', slot: {}, student: {}, tutor: { user: {} } }),
+    },
+    $transaction: jest.fn().mockImplementation(async (fn: any) => fn({ user: mClient.user, slot: mClient.slot, booking: mClient.booking })),
+    $connect: jest.fn(),
+    $disconnect: jest.fn(),
+  };
+  return { PrismaClient: jest.fn(() => mClient) };
+});
 
 describe('Complete User Registration and Authentication Flow', () => {
-  test('should complete student registration workflow', () => {
+  test('should complete student registration workflow', async () => {
     const student = {
-      email: 'student@example.com',
+      email: `student-${Date.now()}@example.com`,
       password: 'Student@123',
       firstName: 'John',
       lastName: 'Doe',
@@ -19,20 +49,32 @@ describe('Complete User Registration and Authentication Flow', () => {
     expect(student.lastName).toBeTruthy();
     expect(['STUDENT', 'TUTOR', 'ADMIN']).toContain(student.role);
 
-    // Mock successful registration
-    const registeredUser = {
-      id: '550e8400-e29b-41d4-a716-446655440000',
-      ...student,
-      createdAt: new Date(),
-    };
+    // Hash password (test bcrypt functionality)
+    const hashedPassword = await bcrypt.hash(student.password, 10);
+    expect(hashedPassword).toBeTruthy();
+    expect(hashedPassword).not.toBe(student.password);
 
-    expect(registeredUser.id).toBeTruthy();
-    expect(registeredUser.createdAt).toBeInstanceOf(Date);
+    // Verify password
+    const isValid = await bcrypt.compare(student.password, hashedPassword);
+    expect(isValid).toBe(true);
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: 'test-user-id', email: student.email, role: student.role },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '1h' }
+    );
+    expect(token).toBeTruthy();
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
+    expect(decoded.email).toBe(student.email);
+    expect(decoded.role).toBe(student.role);
   });
 
-  test('should complete tutor registration workflow', () => {
+  test('should complete tutor registration workflow', async () => {
     const tutor = {
-      email: 'tutor@example.com',
+      email: `tutor-${Date.now()}@example.com`,
       password: 'Tutor@123',
       firstName: 'Jane',
       lastName: 'Smith',
@@ -40,6 +82,10 @@ describe('Complete User Registration and Authentication Flow', () => {
     };
 
     expect(['STUDENT', 'TUTOR', 'ADMIN']).toContain(tutor.role);
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(tutor.password, 10);
+    expect(hashedPassword).toBeTruthy();
 
     // Additional tutor profile
     const tutorProfile = {
@@ -51,6 +97,7 @@ describe('Complete User Registration and Authentication Flow', () => {
 
     expect(tutorProfile.hourlyRate).toBeGreaterThan(0);
     expect(tutorProfile.subjects).toBeInstanceOf(Array);
+    expect(tutorProfile.subjects.length).toBeGreaterThan(0);
   });
 });
 

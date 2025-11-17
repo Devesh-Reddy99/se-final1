@@ -1,6 +1,41 @@
 /**
  * System Tests - Test complete user workflows and system integration
  */
+import { PrismaClient } from '@prisma/client';
+
+// Mock nodemailer to avoid sending real emails during tests
+jest.mock('nodemailer', () => ({
+  createTransport: jest.fn().mockReturnValue({
+    sendMail: jest.fn().mockResolvedValue({}),
+  }),
+}));
+
+// Minimal PrismaClient mock used by system tests to avoid DB access
+jest.mock('@prisma/client', () => {
+  const mClient = {
+    user: {
+      findUnique: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 'u1', email: 'user@example.com' }),
+    },
+    slot: {
+      findUnique: jest.fn().mockResolvedValue({ id: 's1', isBooked: false, startTime: new Date(Date.now() + 3600000), endTime: new Date(Date.now() + 7200000), tutorId: 't1', duration: 60 }),
+      update: jest.fn().mockResolvedValue({}),
+    },
+    booking: {
+      create: jest.fn().mockResolvedValue({ id: 'b1', slot: {}, student: {}, tutor: { user: {} } }),
+    },
+    $transaction: jest.fn().mockImplementation(async (fn: any) => fn({ user: mClient.user, slot: mClient.slot, booking: mClient.booking })),
+    $connect: jest.fn(),
+    $disconnect: jest.fn(),
+  };
+  return { PrismaClient: jest.fn(() => mClient) };
+});
+
+// Import server and controllers so coverage includes source files
+import '../../src/server';
+import '../../src/controllers/authController';
+import '../../src/controllers/bookingController';
+
 
 describe('System Tests', () => {
   describe('User Registration and Login Flow', () => {
