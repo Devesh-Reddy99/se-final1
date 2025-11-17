@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tutorbook_backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - DATABASE_URL=file:./dev.db
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - PORT=3000
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - EMAIL_FROM=${EMAIL_FROM}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - uploads:/app/uploads
+      - db_data:/app/prisma
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tutorbook_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:3000/api
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+
+volumes:
+  uploads:
+    driver: local
+  db_data:
+    driver: local
+
+networks:
+  default:
+    name: tutorbook_network
