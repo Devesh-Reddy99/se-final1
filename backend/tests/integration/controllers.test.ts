@@ -58,6 +58,7 @@ describe('Health Controller', () => {
   });
 
   test('should return health check success', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { healthCheck } = require('../../src/controllers/healthController');
     
     await healthCheck(mockReq as Request, mockRes as Response);
@@ -73,6 +74,7 @@ describe('Health Controller', () => {
   });
 
   test('should return system metrics', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { getMetrics } = require('../../src/controllers/healthController');
     
     await getMetrics(mockReq as Request, mockRes as Response);

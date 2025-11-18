@@ -76,8 +76,8 @@ export const createSlot = async (req: AuthRequest, res: Response) => {
     const maxCount = recurrenceCount || 30;
     const recurEnd = recurrenceEnd ? new Date(recurrenceEnd) : new Date(start.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 days default
 
-    let currentStart = new Date(start);
-    let currentEnd = new Date(end);
+    const currentStart = new Date(start);
+    const currentEnd = new Date(end);
     let count = 0;
 
     while (currentStart < recurEnd && count < maxCount) {

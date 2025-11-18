@@ -21,7 +21,7 @@
     "test:performance": "jest --testPathPattern=tests/performance",
     "test:security": "jest --testPathPattern=tests/security",
     "test:coverage": "jest --coverage --coverageReporters=text --coverageReporters=lcov",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint . --ext .ts --max-warnings 50",
     "format": "prettier --write \"src/**/*.ts\""
   },
   "keywords": [

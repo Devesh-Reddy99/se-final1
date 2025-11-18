@@ -140,6 +140,7 @@ export const createUser = async (req: AuthRequest, res: Response) => {
   }
 
   // Hash password
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const bcrypt = require('bcryptjs');
   const hashedPassword = await bcrypt.hash(password, parseInt(process.env.BCRYPT_ROUNDS || '10'));
 
