@@ -1,7 +1,6 @@
 /**
  * System Tests - Test complete user workflows and system integration
  */
-import { PrismaClient } from '@prisma/client';
 
 // Mock nodemailer to avoid sending real emails during tests
 jest.mock('nodemailer', () => ({

@@ -3,7 +3,7 @@
  */
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { sendBookingConfirmation, sendBookingCancellation, sendBookingReminder } from '../../src/services/emailService';
+
 // Mock nodemailer
 jest.mock('nodemailer', () => ({
   createTransport: jest.fn().mockReturnValue({

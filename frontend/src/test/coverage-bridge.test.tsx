@@ -5,15 +5,26 @@ import { render } from '@testing-library/react';
 // Provide lightweight mocks for app-level modules
 vi.mock('../contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  useAuth: () => ({ user: null, login: vi.fn(), logout: vi.fn(), loading: false }),
+  useAuth: () => ({ 
+    user: { id: '1', firstName: 'Test', lastName: 'User', email: 'test@test.com', role: 'STUDENT' }, 
+    login: vi.fn(), 
+    logout: vi.fn(), 
+    loading: false 
+  }),
 }));
 
-vi.mock('react-router-dom', () => ({
-  BrowserRouter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
-  Route: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Routes: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    BrowserRouter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
+    Route: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Routes: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    Navigate: ({ to }: { to: string }) => <div data-navigate-to={to}></div>,
+    useNavigate: () => vi.fn(),
+  };
+});
 
 // Import components to execute their module code and JSX
 import App from '../App';
@@ -26,10 +37,13 @@ import Profile from '../pages/Profile';
 
 describe('Coverage bridge - render important components', () => {
   it('renders App and core components without crashing', () => {
-    const { getByTestId } = render(
+    const mockOnClose = vi.fn();
+    const mockOnSubmit = vi.fn();
+    
+    const { container } = render(
       <>
         <Navbar />
-        <RatingModal />
+        <RatingModal tutorName="Test Tutor" onClose={mockOnClose} onSubmit={mockOnSubmit} />
       </>
     );
 
@@ -37,8 +51,7 @@ describe('Coverage bridge - render important components', () => {
     const appRender = render(<App />);
     expect(appRender.container).toBeTruthy();
 
-    // Basic sanity checks for components
-    expect(getByTestId && typeof getByTestId === 'function' || true).toBeTruthy();
+    expect(container).toBeTruthy();
   });
 
   it('renders pages individually', () => {

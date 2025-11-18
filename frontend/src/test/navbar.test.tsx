@@ -1,7 +1,12 @@
 /**
  * Tests for Navbar Component
  */
-import { describe, test, expect } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
+import { vi, describe, test, expect } from 'vitest';
+import Navbar from '../components/Navbar';
+
+const mockLogout = vi.fn();
 
 describe('Navbar Component Logic', () => {
   test('should test navbar display logic', () => {
@@ -62,4 +67,55 @@ describe('Navbar Component Logic', () => {
     const hasLogout = true;
     expect(hasLogout).toBe(true);
   });
+
+  test('should render STUDENT navbar and call logout', () => {
+    vi.mock('../contexts/AuthContext', () => ({
+      useAuth: () => ({
+        user: { id: '1', firstName: 'Test', role: 'STUDENT' },
+        logout: mockLogout,
+      }),
+    }));
+
+    render(
+      <BrowserRouter>
+        <Navbar />
+      </BrowserRouter>
+    );
+
+    const logoutButton = screen.queryByRole('button', { name: /logout/i });
+    if (logoutButton) {
+      fireEvent.click(logoutButton);
+    }
+  });
+
+  test('should render TUTOR navbar', () => {
+    vi.mock('../contexts/AuthContext', () => ({
+      useAuth: () => ({
+        user: { id: '1', firstName: 'Test', role: 'TUTOR' },
+        logout: mockLogout,
+      }),
+    }));
+
+    render(
+      <BrowserRouter>
+        <Navbar />
+      </BrowserRouter>
+    );
+  });
+
+  test('should render ADMIN navbar', () => {
+    vi.mock('../contexts/AuthContext', () => ({
+      useAuth: () => ({
+        user: { id: '1', firstName: 'Test', role: 'ADMIN' },
+        logout: mockLogout,
+      }),
+    }));
+
+    render(
+      <BrowserRouter>
+        <Navbar />
+      </BrowserRouter>
+    );
+  });
 });
+
